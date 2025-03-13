@@ -1,6 +1,6 @@
 <?php
 /**
- * @package Woocomerce-Rest-A
+ * @package Woocomerce-rederection website A
  */
 /*
 Plugin Name: CODARAB Pay Redirect
