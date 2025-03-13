@@ -1,6 +1,6 @@
 <?php
 /**
- * @package Woocomerce-Rest-B
+ * @package Woocomerce-rederecion website-B
  */
 /*
 Plugin Name: Woocomerce-Rest-B
