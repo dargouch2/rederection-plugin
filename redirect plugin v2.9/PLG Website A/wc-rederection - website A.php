@@ -15,203 +15,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Activation System from CODARAB PAY Integrated
-add_action('admin_menu', function() {
-    add_menu_page(
-        'COARAB Pay Redirect Activate',
-        'COARAB Pay Redirect Activate',
-        'manage_options',
-        'codarab_rest_a_activation',
-        function() { ?>
-            <div class="wrap">
-                <h2>COARAB Pay Redirect Activate</h2>
-            </div>
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row" class="titledesc">
-                        <label for="codarab_pgActivekey">Activation Key</label>
-                    </th>
-                    <td class="forminp forminp-text">
-                        <input name="codarab_pgActivekey" id="codarab_pgActivekey" type="text" value="<?php echo get_option('codarab_pgActivekey'); ?>">
-                        <span style="margin-left:10px;padding: 2px 15px;border: 1px solid #007cba;font-size: 14px;font-weight: 600;color: #007cba;cursor: pointer;" id="codarab_updatePGActivationKey">Verify</span>
-                        <div class="lds-dual-ring"></div>
-                        <div class="check-ok"></div>
-                        <div class="check-error">X</div>
-                    </td>
-                </tr>
-                <th scope="row" class="titledesc">
-                    <label for="codarab_pgActivekeyExpire">Expire Date</label>
-                </th>
-                <td class="forminp forminp-text">
-                    <input name="codarab_pgActivekeyExpire" id="codarab_pgActivekeyExpire" type="text" value="<?php echo get_option('codarab_pgActivekeyExpire'); ?>" disabled>
-                </td>
-            </table>
-            <script>
-                document.addEventListener("DOMContentLoaded", function() {
-                    var updatePGActivationKey = document.getElementById("codarab_updatePGActivationKey");
-
-                    if (updatePGActivationKey) {
-                        updatePGActivationKey.addEventListener("click", function() {
-                            jQuery('.lds-dual-ring').css('display', 'inline-block');
-                            jQuery('.check-ok').css('display', 'none');
-                            jQuery('.check-error').css('display', 'none');
-                            var codarab_pgActiveKey = jQuery('#codarab_pgActivekey').val();
-
-                            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
-                                action: 'validate_codarab_pg_activation_key',
-                                codarab_pg_active_key: codarab_pgActiveKey
-                            }, function(response) {
-                                var data = JSON.parse(response.slice(0, -1));
-                                var $codarab_pgActivekey = jQuery('#codarab_pgActivekey');
-                                var $codarab_pgActivekeyExpire = jQuery('#codarab_pgActivekeyExpire');
-
-                                if (data.success) {
-                                    jQuery('.lds-dual-ring').css('display', 'none');
-                                    $codarab_pgActivekey.css('border-color', 'green');
-                                    $codarab_pgActivekeyExpire.val(data.expire_date);
-                                    $codarab_pgActivekeyExpire.css('border-color', '');
-                                    $codarab_pgActivekeyExpire.css('color', '');
-                                    jQuery('.check-ok').css('display', 'inline-block');
-                                } else {
-                                    jQuery('.lds-dual-ring').css('display', 'none');
-                                    $codarab_pgActivekey.css('border-color', 'red');
-                                    $codarab_pgActivekeyExpire.val(data.message);
-                                    $codarab_pgActivekeyExpire.css('border-color', 'red');
-                                    $codarab_pgActivekeyExpire.css('color', 'red');
-                                    jQuery('.check-error').css('display', 'inline-block');
-                                }
-                            });
-                        });
-                    }
-                });
-            </script>
-            <style>
-                .lds-dual-ring {
-                    display: none;
-                    width: 20px;
-                    height: 20px;
-                }
-                .lds-dual-ring:after {
-                    content: " ";
-                    display: block;
-                    width: 20px;
-                    height: 20px;
-                    margin: 8px;
-                    border-radius: 50%;
-                    border: 6px solid #fff;
-                    border-color: blue transparent blue transparent;
-                    animation: lds-dual-ring 1.2s linear infinite;
-                    margin-top: 2px;
-                }
-                @keyframes lds-dual-ring {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                .check-ok {
-                    display: none;
-                    transform: rotate(45deg);
-                    height: 16px;
-                    width: 8px;
-                    border-bottom: 4px solid #78b13f;
-                    border-right: 4px solid #78b13f;
-                    margin-left: 5px;
-                }
-                .check-error {
-                    display: none;
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: red;
-                }
-            </style>
-        <?php },
-        'dashicons-admin-plugins',
-        90
-    );
-});
-
-add_action('wp_ajax_validate_codarab_pg_activation_key', function() {
-    $codarab_pg_active_key = sanitize_text_field($_POST['codarab_pg_active_key']);
-    $api_url = 'https://codarab.com/wp-json/activation-key-verify/pluginActivationkey';
-    $api_data = array('api_key' => $codarab_pg_active_key, 'website_url' => home_url(), 'access_code' => 'codarab_rest_a');
-
-    $response = wp_remote_post($api_url, array(
-        'body' => $api_data,
-        'timeout' => 20,
-    ));
-
-    if (is_wp_error($response)) {
-        $is_valid = false;
-        $expire_date = '';
-    } else {
-        $api_response = json_decode(wp_remote_retrieve_body($response), true);
-        $is_valid = isset($api_response['status']) && $api_response['status'];
-        $expire_date = $is_valid ? $api_response['data']['expiry_date'] : '';
-    }
-    $data = json_decode($response['body']);
-
-    if ($data->status == true) {
-        update_option('codarab_pgActivekey', $codarab_pg_active_key);
-        update_option('codarab_pgActivekeyExpire', $data->expiry_date);
-        echo json_encode(array('success' => true, 'expire_date' => $data->expiry_date));
-    } else {
-        update_option('codarab_pgActivekey', $codarab_pg_active_key);
-        update_option('codarab_pgActivekeyExpire', '');
-        echo json_encode(array('success' => false, 'message' =>  $data->message));
-    }
-});
-
-function codarab_plugin_activation_success() {
-    $codarab_pg_active_key = get_option('codarab_pgActivekey');
-    $api_url = 'https://codarab.com/wp-json/activation-key-verify/pluginActivationkey';
-    $api_data = array('api_key' => $codarab_pg_active_key, 'website_url' => home_url(), 'access_code' => 'codarab_rest_a');
-
-    $response = wp_remote_post($api_url, array(
-        'body' => $api_data,
-        'timeout' => 20,
-    ));
-
-    if (is_wp_error($response)) {
-        return false;
-    } else {
-        $api_response = json_decode(wp_remote_retrieve_body($response), true);
-        return isset($api_response['status']) && $api_response['status'];
-    }
-}
-
-add_action('admin_init', function() {
-    global $pagenow;
-
-    if ($pagenow === 'admin.php' && isset($_GET['page']) && $_GET['page'] === 'wc-settings' && isset($_GET['tab']) && $_GET['tab'] === 'checkout' && isset($_GET['section']) && $_GET['section'] === 'codarab_rest_api') {
-        if (!codarab_plugin_activation_success()) {
-            wp_safe_redirect(admin_url('admin.php?page=codarab_rest_a_activation'));
-            exit;
-        }
-    }
-});
-
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), function($links) {
-    if (!codarab_plugin_activation_success()) {
-        array_unshift($links, sprintf(
-            '<a href="%1$s">%2$s</a>',
-            admin_url('admin.php?page=codarab_rest_a_activation'),
-            __('Activate', 'woocommerce')
-        ));
-    } else {
-        array_unshift($links, sprintf(
-            '<a href="%1$s">%2$s</a>',
-            admin_url('admin.php?page=wc-settings&tab=checkout&section=codarab_rest_api'),
-            __('Settings', 'woocommerce')
-        ));
-    }
-    return $links;
-});
-
-add_action('wp_head', function() {
-    if (!codarab_plugin_activation_success()) {
-        echo '<style>li.wc_payment_method.payment_method_codarab_rest_api { display: none !important; }</style>';
-    }
-});
-
 add_action('plugins_loaded', 'init_codarab_rest_api_gateway');
 
 function init_codarab_rest_api_gateway()
@@ -293,9 +96,6 @@ function init_codarab_rest_api_gateway()
             $myordernow = $order->get_id();
             $secondsite = home_url();
             $products = array_reduce($order->get_items(), function ($carry, $item) {
-                /**
-                 * @var WC_Order_Item_Product $item
-                 */
                 $product = $item->get_product();
                 $carry[] = array(
                     'name' => $product->get_name(),
@@ -325,7 +125,6 @@ function init_codarab_rest_api_gateway()
             );
 
             $base_url = rtrim($this->lowrisk_shop_url, '/');
-            // $redirect_url = $base_url . '/wp-content/plugins/woocommerce-rest-b/paynow-checkout.php';
             $redirect_url = $base_url . '/wp-admin/admin-ajax.php?action=rest_b_ckeckout';
 
             return add_query_arg($params, $redirect_url);
@@ -337,13 +136,11 @@ function init_codarab_rest_api_gateway()
             $url = $this->generate_checkout_url($order);
 
             if ($this->redirect_timing === 'payment') {
-                // set redirect_to_external_checkout
                 WC()->session->set('redirect_to_external_checkout', true);
 
                 return array(
                     'result' => 'success',
                     'redirect' => wc_get_checkout_url(),
-                    // 'checkout_url' => $url,
                 );
             }
 
@@ -672,13 +469,11 @@ function codarab_add_iframe_script()
                     try {
                         const button = $(event.target);
                         const originalButtonText = button.html();
-                        const $form = button.closest('form'); // Ensure the correct form element is selected
+                        const $form = button.closest('form');
 
-                        // Show loading state
                         button.html('Adding...').prop('disabled', true);
 
-                        // Get all form data
-                        const formData = new FormData($form[0]); // Pass the correct form element
+                        const formData = new FormData($form[0]);
                         formData.append('add-to-cart', button.val());
 
                         $.ajax({
@@ -698,13 +493,11 @@ function codarab_add_iframe_script()
                                 alert('Error adding product to cart. Please try again.');
                             },
                             complete: function () {
-                                // Reset button state
                                 button.html(originalButtonText).prop('disabled', false);
                             }
                         });
                     }
                     catch (e) {
-                        // alert(e.responseJSON.message || 'An error occurred');
                         console.error(e);
                     }
                 },
@@ -745,10 +538,8 @@ function codarab_add_iframe_script()
 function codarab_process_cart_checkout()
 {
     try {
-        // clear all notices
         wc_clear_notices();
 
-        // Initialize the payment gateway
         $available_gateways = WC()->payment_gateways->get_available_payment_gateways();
         $gateway = isset($available_gateways['codarab_rest_api'])
             ? $available_gateways['codarab_rest_api']
@@ -769,7 +560,6 @@ function codarab_process_cart_checkout()
             return $data;
         });
 
-        // remove session
         WC()->session->__unset('redirect_to_external_checkout');
 
         WC()->checkout()->process_checkout();
@@ -808,12 +598,8 @@ function check_redirect_to_external_checkout($template)
 
     if ($should_redirect) {
         try {
-            // Remove the session variable if it exists
             WC()->session->__unset('redirect_to_external_checkout');
-
-            // remove notices
             wc_clear_notices();
-
             $template = __DIR__ . '/templates/external-checkout.php';
         } catch (Throwable $e) {
             die('An error occurred: ' . $e->getMessage());
@@ -831,27 +617,12 @@ function add_to_cart_redirect_to_external_checkout($url)
 
     if ($gateway->redirect_timing === 'add_to_cart' && WC()->session->get('redirect_to_external_checkout')) {
         $url = wc_get_checkout_url();
-
-        // remove notices
         wc_clear_notices();
     }
 
     return $url;
 }
 
-add_filter('woocommerce_payment_gateways', function($methods) {
-    if (!codarab_plugin_activation_success()) {
-        return array_filter($methods, function($method) {
-            return $method !== 'WC_codarab_rest_api_Gateway';
-        });
-    }
-    return $methods;
-}, 20);
-
-
 add_action('wp_head', function () {
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">';
 });
-
-
-
